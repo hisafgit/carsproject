@@ -32,7 +32,7 @@ class List:
         if res.status_code == 200:
             return res.text
         else:
-            logger.error(f'No good response from {self.url}')
+            logger.error(f'No good response from {self.url} with {self.params}')
 
     def add_page(self):
         self.text = self.request_page()
@@ -54,6 +54,7 @@ class List:
     
 
 class Detail(List):
+    ''' Represents a page with details of an item '''
 
     def __init__(self, base_url, path, **params):
         super().__init__(base_url, path, **params)
@@ -95,10 +96,13 @@ class Detail(List):
                         brand = task1[0], year = detail_dict.get('year'), \
                             extcolor = task2[0], trans = task3[0])
                 if task4[1] == True:
+                    # True means successfuly saved. task4 = (Obj, Bool)
                     logger.info(f'Details saved to db successfully for {self.url}')
                 else:
-                    logger.info(f'Details already exist on DB for {self.url}')
-            except utils.IntegrityError:
+                    # The same item was already downloaded before.
+                    logger.info(f'Details already exist on DB for {self.url}') 
+            except utils.IntegrityError: 
+                # If Car object does not meet the UNIQUE CONSTRAINT for (title, img_url) together.
                 logger.info(f'Details already exist on DB for {self.url}')
         except ValueError:
             logger.warning(f'Detail dict could not be created for {self.url}')
@@ -109,17 +113,21 @@ base_url = 'https://www.cars.com'
 listings_path = '/shopping/results/' 
 
 
-async def main():
+async def main(num_pages):
     
-    for page in range(20):
+    for page in range(num_pages):
         t_start = time.perf_counter()
         l = List(base_url=base_url, path=listings_path, page=page, page_size=20)
         l.add_page()
         l.parse_page()
         await asyncio.gather(*[i.save_to_db() for i in l.items])
         t_end = time.perf_counter()
-        print(f"Total time taken: {t_end - t_start}s")
+        print(f"Page {page} done! Total time taken: {t_end - t_start}s")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        num_pages = int(sys.argv[1])
+    except ValueError:
+        sys.exit("Usage: python downloader.py num_pages")
+    asyncio.run(main(num_pages))
 
-# RUNS OK
